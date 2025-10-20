@@ -10,18 +10,22 @@ import json
 # ------------------------------
 
 # Pobieramy JSON z Secrets
-google_creds_json = st.secrets["GOOGLE_CREDS"]
-credentials_dict = json.loads(google_creds_json)
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+import streamlit as st
+
+# Pobranie secret jako słownik
+creds_dict = st.secrets["GOOGLE_CREDS"]
 
 scope = ["https://spreadsheets.google.com/feeds",
          "https://www.googleapis.com/auth/drive"]
 
-creds = ServiceAccountCredentials.from_json_keyfile_dict(credentials_dict, scope)
+# Autoryzacja
+creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
 
-# ID Twojego arkusza Google Sheets
-SHEET_ID = "1vxN9KLkqU7QEsFsxucbNjUuRM-ZNwCjBM8EGYMKQBWU"
-sheet = client.open_by_key(SHEET_ID).sheet1
+# Otwieranie arkusza
+sheet = client.open_by_key("1vxN9KLkqU7QEsFsxucbNjUuRM-ZNwCjBM8EGYMKQBWU").sheet1
 
 # ------------------------------
 # POBRANIE DANYCH Z ARKUSZA
