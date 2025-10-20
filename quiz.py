@@ -1,37 +1,33 @@
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-import streamlit as st
 import pandas as pd
+import streamlit as st
 import random
 import json
-import os
 
 # ------------------------------
-# KONFIGURACJA
+# AUTORYZACJA GOOGLE SHEETS
 # ------------------------------
 
-# Pobieranie secretu z Streamlit
-google_creds_json = st.secrets["GOOGLE_CREDS"]["value"]
+# Pobieramy JSON z Secrets
+google_creds_json = st.secrets["GOOGLE_CREDS"]
 credentials_dict = json.loads(google_creds_json)
 
 scope = ["https://spreadsheets.google.com/feeds",
          "https://www.googleapis.com/auth/drive"]
 
-# Uwierzytelnienie z użyciem słownika
 creds = ServiceAccountCredentials.from_json_keyfile_dict(credentials_dict, scope)
 client = gspread.authorize(creds)
 
-# ------------------------------
-# OTWARCIE ARKUSZA
-# ------------------------------
-
-SHEET_ID = "1vxN9KLkqU7QEsFsxucbNjUuRM-ZNwCjBM8EGYMKQBWU"  # Twój ID arkusza
+# ID Twojego arkusza Google Sheets
+SHEET_ID = "1vxN9KLkqU7QEsFsxucbNjUuRM-ZNwCjBM8EGYMKQBWU"
 sheet = client.open_by_key(SHEET_ID).sheet1
 
 # ------------------------------
 # POBRANIE DANYCH Z ARKUSZA
 # ------------------------------
 
+# Wymuszone nagłówki
 data = sheet.get_all_records(expected_headers=[
     'Słówko', 'Przykładowe zdanie / zdania', 'Nie znam', 'Znam trochę', 'Bardzo dobrze znam'
 ])
@@ -39,7 +35,7 @@ data = sheet.get_all_records(expected_headers=[
 df = pd.DataFrame(data)
 
 # ------------------------------
-# MAPOWANIE KOLUMN
+# AUTOMATYCZNE DOPASOWANIE KOLUMN
 # ------------------------------
 
 col_map = {
@@ -49,15 +45,16 @@ col_map = {
 }
 
 # ------------------------------
-# STREAMLIT QUIZ
+# STREAMLIT
 # ------------------------------
 
 st.title("Quiz słówek")
 
+# Session state do przeładowania quizu
 if 'current_word_index' not in st.session_state:
     st.session_state.current_word_index = None
 
-# Wybór słówka, które jeszcze nie było ocenione
+# Wybór losowego słówka, które nie zostało ocenione
 df_not_done = df[
     (df['Nie znam'] != 1) &
     (df['Znam trochę'] != 1) &
@@ -74,15 +71,19 @@ else:
     current_word = df.loc[st.session_state.current_word_index]
     slowo = current_word['Słówko']
     przyklad = current_word['Przykładowe zdanie / zdania']
+    
     st.subheader(f"Słówko: {slowo}")
-    st.write(f"Przykład: {przyklad}")
+    if przyklad:
+        st.write(f"Przykład: {przyklad}")
 
+    # Funkcja do zapisu wyniku
     def zapisz_wynik(kolumna_nazwa):
-        row_number = st.session_state.current_word_index + 2
+        row_number = st.session_state.current_word_index + 2  # +2 bo nagłówek to wiersz 1
         col_number = col_map[kolumna_nazwa]
         sheet.update_cell(row_number, col_number, 1)
-        st.session_state.current_word_index = None  # następne słówko
+        st.session_state.current_word_index = None  # przygotuj nowe słówko
 
+    # Przyciski
     st.button("Nie znam", on_click=zapisz_wynik, args=("Nie znam",))
     st.button("Znam trochę", on_click=zapisz_wynik, args=("Znam trochę",))
     st.button("Bardzo dobrze znam", on_click=zapisz_wynik, args=("Bardzo dobrze znam",))
