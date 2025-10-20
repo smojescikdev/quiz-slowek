@@ -6,32 +6,31 @@ import random
 import json
 
 # ------------------------------
-# AUTORYZACJA GOOGLE SHEETS
+# KONFIGURACJA
 # ------------------------------
 
-# Pobieramy JSON z Secrets
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
-import streamlit as st
+SHEET_ID = "1vxN9KLkqU7QEsFsxucbNjUuRM-ZNwCjBM8EGYMKQBWU"  # Wklej ID swojego arkusza Google Sheets
 
-# Pobranie secret jako słownik
-creds_dict = st.secrets["GOOGLE_CREDS"]
+# ------------------------------
+# UWIERZYTELNIENIE GOOGLE SHEETS
+# ------------------------------
+
+# Pobranie sekretu
+google_creds_json = st.secrets["GOOGLE_CREDS"]
+creds_dict = json.loads(google_creds_json)  # musi być słownik
 
 scope = ["https://spreadsheets.google.com/feeds",
          "https://www.googleapis.com/auth/drive"]
 
-# Autoryzacja
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
 
-# Otwieranie arkusza
-sheet = client.open_by_key("1vxN9KLkqU7QEsFsxucbNjUuRM-ZNwCjBM8EGYMKQBWU").sheet1
+sheet = client.open_by_key(SHEET_ID).sheet1
 
 # ------------------------------
 # POBRANIE DANYCH Z ARKUSZA
 # ------------------------------
 
-# Wymuszone nagłówki
 data = sheet.get_all_records(expected_headers=[
     'Słówko', 'Przykładowe zdanie / zdania', 'Nie znam', 'Znam trochę', 'Bardzo dobrze znam'
 ])
@@ -75,10 +74,10 @@ else:
     current_word = df.loc[st.session_state.current_word_index]
     slowo = current_word['Słówko']
     przyklad = current_word['Przykładowe zdanie / zdania']
-    
+
     st.subheader(f"Słówko: {slowo}")
-    if przyklad:
-        st.write(f"Przykład: {przyklad}")
+    if przyklad.strip() != "":
+        st.write(f"*Przykład:* {przyklad}")
 
     # Funkcja do zapisu wyniku
     def zapisz_wynik(kolumna_nazwa):
