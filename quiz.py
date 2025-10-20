@@ -1,25 +1,31 @@
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-import pandas as pd
 import streamlit as st
+import pandas as pd
 import random
+import json
+import os
 
 # ------------------------------
 # KONFIGURACJA
 # ------------------------------
 
-CREDENTIALS_FILE = 'credentials.json'  # Twój plik JSON z kontem serwisowym
-SHEET_ID = "1vxN9KLkqU7QEsFsxucbNjUuRM-ZNwCjBM8EGYMKQBWU"       # Wklej ID swojego arkusza Google Sheets
-
-# ------------------------------
-# AUTORYZACJA GOOGLE SHEETS
-# ------------------------------
+# Pobieranie secretu z Streamlit
+google_creds_json = st.secrets["GOOGLE_CREDS"]["value"]
+credentials_dict = json.loads(google_creds_json)
 
 scope = ["https://spreadsheets.google.com/feeds",
          "https://www.googleapis.com/auth/drive"]
 
-creds = ServiceAccountCredentials.from_json_keyfile_name(CREDENTIALS_FILE, scope)
+# Uwierzytelnienie z użyciem słownika
+creds = ServiceAccountCredentials.from_json_keyfile_dict(credentials_dict, scope)
 client = gspread.authorize(creds)
+
+# ------------------------------
+# OTWARCIE ARKUSZA
+# ------------------------------
+
+SHEET_ID = "1vxN9KLkqU7QEsFsxucbNjUuRM-ZNwCjBM8EGYMKQBWU"  # Twój ID arkusza
 sheet = client.open_by_key(SHEET_ID).sheet1
 
 # ------------------------------
@@ -33,7 +39,7 @@ data = sheet.get_all_records(expected_headers=[
 df = pd.DataFrame(data)
 
 # ------------------------------
-# AUTOMATYCZNE DOPASOWANIE KOLUMN
+# MAPOWANIE KOLUMN
 # ------------------------------
 
 col_map = {
@@ -43,7 +49,7 @@ col_map = {
 }
 
 # ------------------------------
-# STREAMLIT
+# STREAMLIT QUIZ
 # ------------------------------
 
 st.title("Quiz słówek")
@@ -51,6 +57,7 @@ st.title("Quiz słówek")
 if 'current_word_index' not in st.session_state:
     st.session_state.current_word_index = None
 
+# Wybór słówka, które jeszcze nie było ocenione
 df_not_done = df[
     (df['Nie znam'] != 1) &
     (df['Znam trochę'] != 1) &
@@ -66,18 +73,15 @@ else:
 
     current_word = df.loc[st.session_state.current_word_index]
     slowo = current_word['Słówko']
-    st.subheader(f"Słówko: {slowo}")
-
-    # Wyświetlenie przykładowego zdania
     przyklad = current_word['Przykładowe zdanie / zdania']
-    st.write(f"Przykład użycia: {przyklad}")
+    st.subheader(f"Słówko: {slowo}")
+    st.write(f"Przykład: {przyklad}")
 
-    # Funkcja do zapisu wyniku
     def zapisz_wynik(kolumna_nazwa):
         row_number = st.session_state.current_word_index + 2
         col_number = col_map[kolumna_nazwa]
         sheet.update_cell(row_number, col_number, 1)
-        st.session_state.current_word_index = None
+        st.session_state.current_word_index = None  # następne słówko
 
     st.button("Nie znam", on_click=zapisz_wynik, args=("Nie znam",))
     st.button("Znam trochę", on_click=zapisz_wynik, args=("Znam trochę",))
